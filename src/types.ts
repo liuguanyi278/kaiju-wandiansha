@@ -1,4 +1,4 @@
-export type Route = 'home' | 'lobby' | 'truth-or-dare' | 'punishment-wheel' | 'chemistry-quiz';
+export type Route = 'home' | 'lobby' | 'truth-or-dare' | 'punishment-wheel' | 'chemistry-quiz' | 'liar-dice';
 
 export type GameId = Exclude<Route, 'home' | 'lobby'>;
 

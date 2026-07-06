@@ -22,4 +22,11 @@ export const games: GameConfig[] = [
     description: '一个问题，大家轮流回答，看谁最有梗。',
     tags: ['问答', '互动', '熟人局'],
   },
+  {
+    id: 'liar-dice',
+    title: '大话骰',
+    icon: '🎲',
+    description: '每个人打开自己的手机摇骰，手机就是你的骰盅。',
+    tags: ['骰子', '推理', '聚会'],
+  },
 ];
