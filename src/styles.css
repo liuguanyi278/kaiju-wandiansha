@@ -465,21 +465,29 @@ h2 {
 }
 
 .liar-dice-page {
-  --liar-dice-stage-height: 340px;
-  --liar-dice-cup-width: 260px;
-  --liar-dice-cup-closed-y: 84px;
-  --liar-dice-cup-open-y: -20px;
-  --liar-dice-plate-width: 250px;
-  --liar-dice-plate-bottom: 22px;
-  --liar-dice-dice-size: 52px;
-  --liar-dice-dice-area-width: 216px;
-  --liar-dice-dice-area-height: 118px;
-  --liar-dice-dice-area-bottom: 58px;
+  --liar-dice-stage-height: 400px;
+  --liar-dice-stage-margin-top: 27px;
+  --liar-dice-cup-width: 220px;
+  --liar-dice-cup-closed-y: -26px;
+  --liar-dice-cup-open-y: -140px;
+  --liar-dice-plate-width: 238px;
+  --liar-dice-plate-bottom: 4px;
+  --liar-dice-dice-size: 50px;
+  --liar-dice-dice-area-width: 200px;
+  --liar-dice-dice-area-height: 112px;
+  --liar-dice-dice-area-bottom: 78px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  gap: 14px;
 }
 
 .liar-dice-stage {
   position: relative;
   height: var(--liar-dice-stage-height);
+  margin-top: var(--liar-dice-stage-margin-top);
+  flex: 0 0 auto;
   overflow: hidden;
   border-radius: 8px;
   touch-action: pan-y;
@@ -494,6 +502,7 @@ h2 {
 
 .liar-dice-plate-layer {
   bottom: var(--liar-dice-plate-bottom);
+  z-index: 1;
   display: grid;
   width: var(--liar-dice-plate-width);
   aspect-ratio: 1.9;
@@ -589,6 +598,7 @@ h2 {
 .liar-dice-status {
   display: grid;
   gap: 8px;
+  margin-top: auto;
   padding: 16px;
 }
 
@@ -608,6 +618,7 @@ h2 {
   display: grid;
   grid-template-columns: 1fr 1.1fr 1fr;
   gap: 10px;
+  flex: 0 0 auto;
 }
 
 .liar-dice-actions .primary-button,
@@ -729,6 +740,10 @@ h2 {
   .page {
     min-height: calc(100vh - 48px);
   }
+
+  .liar-dice-page {
+    min-height: calc(100vh - 48px);
+  }
 }
 
 @media (max-width: 350px) {
@@ -737,11 +752,17 @@ h2 {
   }
 
   .liar-dice-page {
-    --liar-dice-stage-height: 318px;
+    --liar-dice-stage-height: 328px;
+    --liar-dice-stage-margin-top: 12px;
     --liar-dice-cup-width: 238px;
+    --liar-dice-cup-closed-y: 82px;
+    --liar-dice-cup-open-y: -120px;
     --liar-dice-plate-width: 228px;
+    --liar-dice-plate-bottom: 32px;
     --liar-dice-dice-size: 47px;
     --liar-dice-dice-area-width: 198px;
+    --liar-dice-dice-area-height: 108px;
+    --liar-dice-dice-area-bottom: 62px;
   }
 }
 
