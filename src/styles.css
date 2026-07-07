@@ -473,9 +473,9 @@ h2 {
   --liar-dice-plate-width: 238px;
   --liar-dice-plate-bottom: 4px;
   --liar-dice-dice-size: 50px;
-  --liar-dice-dice-area-width: 200px;
-  --liar-dice-dice-area-height: 112px;
-  --liar-dice-dice-area-bottom: 78px;
+  --liar-dice-dice-area-width: 273px;
+  --liar-dice-dice-area-height: 60px;
+  --liar-dice-dice-area-bottom: 70px;
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
@@ -490,7 +490,7 @@ h2 {
   flex: 0 0 auto;
   overflow: hidden;
   border-radius: 8px;
-  touch-action: pan-y;
+  touch-action: none;
 }
 
 .liar-dice-plate-layer,
@@ -548,6 +548,8 @@ h2 {
   outline: 0;
   transform: translateX(-50%) translateY(var(--liar-dice-cup-closed-y));
   transition: transform 0.34s ease;
+  touch-action: none;
+  user-select: none;
 }
 
 .liar-dice-stage.is-open .liar-dice-cup-layer {
@@ -556,6 +558,10 @@ h2 {
 
 .liar-dice-stage.is-shaking .liar-dice-cup-layer {
   animation: liar-dice-shake 0.76s ease;
+}
+
+.liar-dice-cup-layer.is-dragging {
+  transition: none;
 }
 
 .liar-dice-fallback-cup,

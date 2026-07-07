@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { TouchEvent } from 'react';
+import type { PointerEvent } from 'react';
 import BackButton from '../components/BackButton';
 import Card from '../components/Card';
 import { games } from '../data/games';
@@ -24,12 +24,12 @@ interface DiceSlot {
 const gameInfo = games.find((game) => game.id === 'liar-dice')!;
 
 const diceSlots: DiceSlot[] = [
-  { slotId: 1, left: '17%', top: '25%', rotate: -14, zIndex: 2 },
-  { slotId: 2, left: '39%', top: '18%', rotate: 9, zIndex: 3 },
-  { slotId: 3, left: '58%', top: '27%', rotate: -4, zIndex: 2 },
-  { slotId: 4, left: '25%', top: '52%', rotate: 12, zIndex: 4 },
-  { slotId: 5, left: '49%', top: '49%', rotate: -10, zIndex: 5 },
-  { slotId: 6, left: '66%', top: '51%', rotate: 15, zIndex: 4 },
+  { slotId: 1, left: '17%', top: '25%', rotate: 0, zIndex: 2 },
+  { slotId: 2, left: '36%', top: '25%', rotate: 0, zIndex: 3 },
+  { slotId: 3, left: '57%', top: '15%', rotate: 0, zIndex: 2 },
+  { slotId: 4, left: '30%', top: '80%', rotate: 0, zIndex: 4 },
+  { slotId: 5, left: '49%', top: '65%', rotate: 0, zIndex: 5 },
+  { slotId: 6, left: '67%', top: '51%', rotate: 0, zIndex: 4 },
 ];
 
 const defaultRulesText = `每个人打开自己的手机，手机就是自己的骰盅。
@@ -48,6 +48,14 @@ const storageKeys = {
   soundEnabled: 'liarDice:soundEnabled',
   rulesText: 'liarDice:rulesText',
 };
+
+const fallbackCupY = {
+  // Keep these fallback values in sync with the CSS variables in styles.css.
+  open: -132,
+  closed: 88,
+};
+
+const dragClickThreshold = 8;
 
 function readStoredDiceCount() {
   const stored = Number(window.localStorage.getItem(storageKeys.diceCount));
@@ -76,6 +84,10 @@ function createDiceResults(diceCount: number): DiceResult[] {
       value: Math.floor(Math.random() * 6) + 1,
     }))
     .sort((a, b) => a.slotId - b.slotId);
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function DiceImage({ result }: { result: DiceResult }) {
@@ -112,10 +124,35 @@ export default function LiarDice({ onBack }: LiarDiceProps) {
   const [cupFailed, setCupFailed] = useState(false);
   const [plateFailed, setPlateFailed] = useState(false);
   const [countChanged, setCountChanged] = useState(false);
-  const touchStartY = useRef<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [cupOffsetY, setCupOffsetY] = useState(fallbackCupY.closed);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const dragState = useRef({
+    pointerId: null as number | null,
+    startY: 0,
+    startCupY: fallbackCupY.closed,
+    hasMoved: false,
+  });
+  const suppressNextClick = useRef(false);
+  const cupYRange = useRef(fallbackCupY);
 
   const slotMap = useMemo(() => new Map(diceSlots.map((slot) => [slot.slotId, slot])), []);
   const hasRolled = diceResults.length > 0;
+  const shouldShowDice = isOpen || isDragging || cupOffsetY < cupYRange.current.closed - dragClickThreshold;
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const styles = window.getComputedStyle(stage);
+    const open = Number.parseFloat(styles.getPropertyValue('--liar-dice-cup-open-y'));
+    const closed = Number.parseFloat(styles.getPropertyValue('--liar-dice-cup-closed-y'));
+    cupYRange.current = {
+      open: Number.isFinite(open) ? open : fallbackCupY.open,
+      closed: Number.isFinite(closed) ? closed : fallbackCupY.closed,
+    };
+    setCupOffsetY(isOpen ? cupYRange.current.open : cupYRange.current.closed);
+  }, [isOpen]);
 
   const statusText = (() => {
     if (countChanged) return '骰子个数已更新，请重新摇骰。';
@@ -141,6 +178,7 @@ export default function LiarDice({ onBack }: LiarDiceProps) {
     playShakeSound();
     setCountChanged(false);
     setIsOpen(false);
+    setCupOffsetY(cupYRange.current.closed);
     setIsShaking(true);
     setDiceResults(createDiceResults(diceCount));
 
@@ -154,6 +192,7 @@ export default function LiarDice({ onBack }: LiarDiceProps) {
     window.localStorage.setItem(storageKeys.diceCount, String(nextCount));
     setDiceResults([]);
     setIsOpen(false);
+    setCupOffsetY(cupYRange.current.closed);
     setIsLocked(false);
     setCountChanged(true);
   };
@@ -172,25 +211,64 @@ export default function LiarDice({ onBack }: LiarDiceProps) {
     updateRulesText(defaultRulesText);
   };
 
-  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
-    touchStartY.current = event.touches[0]?.clientY ?? null;
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragState.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startCupY: cupOffsetY,
+      hasMoved: false,
+    };
+    setIsDragging(true);
   };
 
-  const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
-    if (touchStartY.current === null) return;
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (dragState.current.pointerId !== event.pointerId) return;
 
-    const endY = event.changedTouches[0]?.clientY ?? touchStartY.current;
-    const deltaY = endY - touchStartY.current;
-    touchStartY.current = null;
+    event.preventDefault();
+    const deltaY = event.clientY - dragState.current.startY;
+    const nextCupY = clamp(
+      dragState.current.startCupY + deltaY,
+      cupYRange.current.open,
+      cupYRange.current.closed,
+    );
 
-    if (deltaY < -24) {
-      setIsOpen(true);
+    if (Math.abs(deltaY) > dragClickThreshold) {
+      dragState.current.hasMoved = true;
+    }
+
+    setCupOffsetY(nextCupY);
+  };
+
+  const finishPointerDrag = (event: PointerEvent<HTMLDivElement>) => {
+    if (dragState.current.pointerId !== event.pointerId) return;
+
+    const midpoint = (cupYRange.current.open + cupYRange.current.closed) / 2;
+    const nextIsOpen = cupOffsetY <= midpoint;
+
+    if (dragState.current.hasMoved) {
+      suppressNextClick.current = true;
+      setIsOpen(nextIsOpen);
+      setCupOffsetY(nextIsOpen ? cupYRange.current.open : cupYRange.current.closed);
+    }
+
+    dragState.current.pointerId = null;
+    setIsDragging(false);
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  const handleCupClick = () => {
+    if (suppressNextClick.current) {
+      suppressNextClick.current = false;
       return;
     }
 
-    if (deltaY > 24) {
-      setIsOpen(false);
-    }
+    const nextIsOpen = !isOpen;
+    setIsOpen(nextIsOpen);
+    setCupOffsetY(nextIsOpen ? cupYRange.current.open : cupYRange.current.closed);
   };
 
   return (
@@ -210,6 +288,7 @@ export default function LiarDice({ onBack }: LiarDiceProps) {
       </header>
 
       <div
+        ref={stageRef}
         className={`liar-dice-stage ${isOpen ? 'is-open' : ''} ${isShaking ? 'is-shaking' : ''}`}
         aria-label="大话骰骰盅区域"
       >
@@ -221,8 +300,8 @@ export default function LiarDice({ onBack }: LiarDiceProps) {
           )}
         </div>
 
-        <div className="liar-dice-list" aria-hidden={!isOpen}>
-          {isOpen &&
+        <div className="liar-dice-list" aria-hidden={!shouldShowDice}>
+          {shouldShowDice &&
             diceResults.map((result) => {
               const slot = slotMap.get(result.slotId)!;
               return (
@@ -243,19 +322,24 @@ export default function LiarDice({ onBack }: LiarDiceProps) {
         </div>
 
         <div
-          className="liar-dice-cup-layer"
+          className={`liar-dice-cup-layer ${isDragging ? 'is-dragging' : ''}`}
           role="button"
           tabIndex={0}
           aria-label={isOpen ? '点击关盖' : '点击开盖'}
-          onClick={() => setIsOpen((current) => !current)}
+          style={{ transform: `translateX(-50%) translateY(${cupOffsetY}px)` }}
+          onClick={handleCupClick}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault();
-              setIsOpen((current) => !current);
+              const nextIsOpen = !isOpen;
+              setIsOpen(nextIsOpen);
+              setCupOffsetY(nextIsOpen ? cupYRange.current.open : cupYRange.current.closed);
             }
           }}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={finishPointerDrag}
+          onPointerCancel={finishPointerDrag}
         >
           {cupFailed ? (
             <span className="liar-dice-fallback-cup">骰盅素材缺失</span>
